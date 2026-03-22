@@ -53,11 +53,21 @@ if (-not $vcInstalled) {
     $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH","User")
 }
 
-# Trouve et ajoute link.exe au PATH (indispensable pour Rust)
 $linkExe = Get-ChildItem "C:\Program Files\Microsoft Visual Studio" -Recurse -Filter "link.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $linkExe) {
+    $linkExe = Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio" -Recurse -Filter "link.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+}
+if (-not $linkExe) {
+    $linkExe = Get-ChildItem "C:\Program Files\Microsoft Visual Studio 2022" -Recurse -Filter "link.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+}
+if (-not $linkExe) {
+    # Cherche dans tout le disque C en dernier recours
+    $linkExe = Get-ChildItem "C:\" -Recurse -Filter "link.exe" -ErrorAction SilentlyContinue | Where-Object { $_.FullName -like "*VC*" } | Select-Object -First 1
+}
+
 if ($linkExe) {
     $env:PATH = $linkExe.DirectoryName + ";" + $env:PATH
-    ok "Visual C++ Build Tools + link.exe"
+    ok "Visual C++ Build Tools + link.exe ($($linkExe.DirectoryName))"
 } else {
     err "link.exe introuvable. Installe Visual Studio Build Tools manuellement : https://visualstudio.microsoft.com/fr/downloads/#build-tools-for-visual-studio-2022"
 }
