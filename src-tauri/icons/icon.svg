@@ -1,0 +1,20 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="512" height="512" rx="80" fill="#1e1e1e"/>
+  <rect x="10" y="10" width="492" height="492" rx="72" fill="none" stroke="#3a3a3a" stroke-width="1.5"/>
+  <text x="256" y="290"
+    font-family="system-ui, sans-serif"
+    font-size="190"
+    font-weight="700"
+    fill="#e8e8e8"
+    letter-spacing="8"
+    text-anchor="middle"
+    dominant-baseline="central">AMI</text>
+  <rect x="120" y="360" width="272" height="2" rx="1" fill="#444"/>
+  <text x="256" y="395"
+    font-family="system-ui, sans-serif"
+    font-size="28"
+    font-weight="400"
+    fill="#666"
+    letter-spacing="5"
+    text-anchor="middle">POCKETMINE</text>
+</svg>

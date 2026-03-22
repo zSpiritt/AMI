@@ -1,0 +1,160 @@
+$ErrorActionPreference = "Stop"
+$Host.UI.RawUI.WindowTitle = "AMI — Installation"
+
+$REPO_URL   = "https://github.com/zSpiritt/AMI.git"
+$INSTALL_DIR = "$env:LOCALAPPDATA\AMI"
+$TMP_DIR     = "$env:TEMP\AMI-build"
+function ok   { Write-Host "  [OK] $args" -ForegroundColor Green }
+function info { Write-Host "  --> $args" -ForegroundColor Cyan }
+function warn { Write-Host "  [!]  $args" -ForegroundColor Yellow }
+function err  { Write-Host "  [X]  $args" -ForegroundColor Red; Read-Host "Appuie sur Entree pour quitter"; exit 1 }
+Write-Host ""
+Write-Host "  +--------------------------------------+" -ForegroundColor White
+Write-Host "  |  AMI - Assistant PocketMine          |" -ForegroundColor White
+Write-Host "  |  Installation                        |" -ForegroundColor White
+Write-Host "  +--------------------------------------+" -ForegroundColor White
+Write-Host ""
+
+Write-Host "  [1/5] Installation des dependances..." -ForegroundColor White
+Write-Host ""
+
+if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+    err "winget non disponible. Mets a jour Windows ou installe App Installer depuis le Microsoft Store"
+}
+ok "winget disponible"
+
+if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    info "Installation de Git..."
+    winget install --id Git.Git -e --silent --accept-package-agreements --accept-source-agreements
+    $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH","User")
+}
+ok "Git $(git --version)"
+
+if (Get-Command curl -ErrorAction SilentlyContinue) {
+    ok "curl disponible"
+} else {
+    winget install --id cURL.cURL -e --silent --accept-package-agreements --accept-source-agreements
+    ok "curl installe"
+}
+
+info "Verification de Visual C++ Build Tools..."
+$vcInstalled = Get-ChildItem "C:\Program Files\Microsoft Visual Studio" -ErrorAction SilentlyContinue
+if (-not $vcInstalled) {
+    info "Installation de Visual C++ Build Tools (requis par Rust)..."
+    winget install --id Microsoft.VisualStudio.2022.BuildTools -e --silent `
+        --override "--quiet --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended" `
+        --accept-package-agreements --accept-source-agreements
+}
+ok "Visual C++ Build Tools"
+
+$wv2 = Get-ItemProperty "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" -ErrorAction SilentlyContinue
+if (-not $wv2) {
+    info "Installation de WebView2..."
+    winget install --id Microsoft.EdgeWebView2Runtime -e --silent --accept-package-agreements --accept-source-agreements
+}
+ok "WebView2"
+
+Write-Host ""
+
+Write-Host "  [2/5] Installation de Rust..." -ForegroundColor White
+Write-Host ""
+
+if (Get-Command rustc -ErrorAction SilentlyContinue) {
+    ok "Rust deja installe ($(rustc --version))"
+} else {
+    info "Telechargement de Rust..."
+    $rustupUrl = "https://win.rustup.rs/x86_64"
+    $rustupExe = "$env:TEMP\rustup-init.exe"
+    curl -L -o $rustupExe $rustupUrl
+    Start-Process -FilePath $rustupExe -ArgumentList "-y", "--no-modify-path" -Wait -NoNewWindow
+    Remove-Item $rustupExe
+
+    $env:PATH = "$env:USERPROFILE\.cargo\bin;$env:PATH"
+    [System.Environment]::SetEnvironmentVariable("PATH", "$env:USERPROFILE\.cargo\bin;" + [System.Environment]::GetEnvironmentVariable("PATH","User"), "User")
+    ok "Rust installe"
+}
+
+$env:PATH = "$env:USERPROFILE\.cargo\bin;$env:PATH"
+Write-Host ""
+
+Write-Host "  [3/5] Installation de Node.js..." -ForegroundColor White
+Write-Host ""
+
+if (Get-Command node -ErrorAction SilentlyContinue) {
+    ok "Node.js deja installe ($(node --version))"
+} else {
+    info "Installation de Node.js LTS..."
+    winget install --id OpenJS.NodeJS.LTS -e --silent --accept-package-agreements --accept-source-agreements
+    $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH","User")
+    ok "Node.js installe"
+}
+Write-Host ""
+
+Write-Host "  [4/5] Telechargement et compilation d'AMI..." -ForegroundColor White
+Write-Host ""
+
+if (Test-Path $TMP_DIR) { Remove-Item -Recurse -Force $TMP_DIR }
+
+info "Clonage du repo..."
+git clone $REPO_URL $TMP_DIR --depth=1
+if ($LASTEXITCODE -ne 0) { err "Impossible de cloner le repo" }
+ok "Repo clone"
+
+Set-Location $TMP_DIR
+
+info "Installation des dependances npm..."
+npm install
+if ($LASTEXITCODE -ne 0) { err "Echec de npm install" }
+ok "Dependances npm installees"
+
+info "Compilation (cela peut prendre 10-15 minutes)..."
+npm run tauri build -- --no-bundle
+if ($LASTEXITCODE -ne 0) { err "Echec de la compilation" }
+ok "Compilation terminee"
+
+Write-Host ""
+
+Write-Host "  [5/5] Installation d'AMI..." -ForegroundColor White
+Write-Host ""
+
+$null = New-Item -ItemType Directory -Force -Path $INSTALL_DIR
+
+$binary = Get-ChildItem "$TMP_DIR\src-tauri\target\release\ami.exe" -ErrorAction SilentlyContinue
+if (-not $binary) {
+    $binary = Get-ChildItem "$TMP_DIR\src-tauri\target\release\*.exe" | Where-Object { $_.Name -notlike "*build*" } | Select-Object -First 1
+}
+if (-not $binary) { err "Binaire compile introuvable." }
+
+Copy-Item $binary.FullName "$INSTALL_DIR\ami.exe"
+ok "Binaire installe"
+
+# Icône
+if (Test-Path "$TMP_DIR\src-tauri\icons\icon.svg") {
+    Copy-Item "$TMP_DIR\src-tauri\icons\icon.svg" "$INSTALL_DIR\icon.svg"
+    ok "Icone installee"
+}
+
+# Raccourci bureau
+$shell = New-Object -ComObject WScript.Shell
+$shortcut = $shell.CreateShortcut("$env:USERPROFILE\Desktop\AMI.lnk")
+$shortcut.TargetPath = "$INSTALL_DIR\ami.exe"
+$shortcut.WorkingDirectory = $INSTALL_DIR
+$shortcut.Description = "Assistant PocketMine Interface"
+$shortcut.Save()
+ok "Raccourci bureau cree"
+
+$userPath = [System.Environment]::GetEnvironmentVariable("PATH", "User")
+if ($userPath -notlike "*$INSTALL_DIR*") {
+    [System.Environment]::SetEnvironmentVariable("PATH", "$userPath;$INSTALL_DIR", "User")
+    ok "Ajoute au PATH"
+}
+
+Remove-Item -Recurse -Force $TMP_DIR
+
+Write-Host ""
+Write-Host "  +--------------------------------------+" -ForegroundColor Green
+Write-Host "  |  AMI est installe avec succes !      |" -ForegroundColor Green
+Write-Host "  |  Lance-le depuis ton bureau          |" -ForegroundColor Green
+Write-Host "  +--------------------------------------+" -ForegroundColor Green
+Write-Host ""
+Read-Host "  Appuie sur Entree pour quitter"
