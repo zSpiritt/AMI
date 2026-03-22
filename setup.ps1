@@ -1,6 +1,5 @@
 # AMI - Assistant PocketMine Interface
 # Script d'installation Windows
-# Lance via install.bat
 
 $ErrorActionPreference = "Stop"
 
@@ -43,6 +42,7 @@ if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
     ok "curl installe"
 }
 
+# Visual C++ Build Tools
 info "Verification de Visual C++ Build Tools..."
 $vcInstalled = Get-ChildItem "C:\Program Files\Microsoft Visual Studio" -ErrorAction SilentlyContinue
 if (-not $vcInstalled) {
@@ -50,9 +50,19 @@ if (-not $vcInstalled) {
     winget install --id Microsoft.VisualStudio.2022.BuildTools -e --silent `
         --override "--quiet --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended" `
         --accept-package-agreements --accept-source-agreements
+    $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH","User")
 }
-ok "Visual C++ Build Tools"
 
+# Trouve et ajoute link.exe au PATH (indispensable pour Rust)
+$linkExe = Get-ChildItem "C:\Program Files\Microsoft Visual Studio" -Recurse -Filter "link.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($linkExe) {
+    $env:PATH = $linkExe.DirectoryName + ";" + $env:PATH
+    ok "Visual C++ Build Tools + link.exe"
+} else {
+    err "link.exe introuvable. Installe Visual Studio Build Tools manuellement : https://visualstudio.microsoft.com/fr/downloads/#build-tools-for-visual-studio-2022"
+}
+
+# WebView2
 $wv2 = Get-ItemProperty "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" -ErrorAction SilentlyContinue
 if (-not $wv2) {
     info "Installation de WebView2..."
