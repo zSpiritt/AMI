@@ -59,7 +59,6 @@ fn setup_server(name: String) -> Result<String, String> {
      } else {
           "https://github.com/pmmp/PHP-Binaries/releases/download/pm5-php-8.4-latest/PHP-8.4-Linux-x86_64-PM5.tar.gz"
      };
-
     let archive_ext = if is_windows { "zip" } else { "tar.gz" };
     let php_archive = bin_dir.join(format!("php.{}", archive_ext));
 
