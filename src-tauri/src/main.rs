@@ -17,14 +17,13 @@ fn servers_dir() -> PathBuf {
 
 fn php_bin(server_path: &PathBuf) -> PathBuf {
     if cfg!(target_os = "windows") {
-        server_path.join("bin").join("php").join("php.exe")
+        server_path.join("bin").join("bin").join("php").join("php.exe")
     } else if cfg!(target_os = "macos") {
         server_path.join("bin").join("bin").join("php7").join("bin").join("php")
     } else {
         server_path.join("bin").join("bin").join("php7").join("bin").join("php")
     }
 }
-
 #[tauri::command]
 fn get_servers() -> Vec<String> {
     let dir = servers_dir();
